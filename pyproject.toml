@@ -1,0 +1,17 @@
+[project]
+name = "picman"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "tqdm>=4.67.1",
+]
+
+[project.scripts]
+pm = "picman.main:main"
+
+[tool.uv]
+dev-dependencies = [
+    "ruff>=0.12.8",
+]
