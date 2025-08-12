@@ -15,6 +15,13 @@ def organize_photos_by_date(source_dir: str, target_dir: str,debug:bool):
         print("No files found in source directory.")
         return
     
+    date_mapping = {}
+    for f in files:
+        mtime = datetime.fromtimestamp(f.stat().st_mtime)  # 修改时间
+        ctime = datetime.fromtimestamp(f.stat().st_ctime)  # 创建时间
+        earliest = min(mtime, ctime)
+        date_mapping.setdefault(f.stem,[]).append(earliest)
+
     key = input(f"Copy {len(files)} files? \nfrom {source.resolve()} \nto {target.resolve()} \n[Y/N]?" )
     if key.lower()=='y':
         print("Process")
@@ -26,12 +33,14 @@ def organize_photos_by_date(source_dir: str, target_dir: str,debug:bool):
 
     skipped_files = []
 
+
     for file in tqdm(files, desc="Organizing photos", unit="file"):
 
-        mtime = datetime.fromtimestamp(file.stat().st_mtime)  # 修改时间
-        ctime = datetime.fromtimestamp(file.stat().st_ctime)  # 创建时间
+        # mtime = datetime.fromtimestamp(file.stat().st_mtime)  # 修改时间
+        # ctime = datetime.fromtimestamp(file.stat().st_ctime)  # 创建时间
 
-        earliest = min(mtime, ctime)
+        # earliest = min(mtime, ctime)
+        earliest = min(date_mapping[file.stem])
         date_str = earliest.strftime('%Y-%m-%d')
 
         if camera_model:
