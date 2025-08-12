@@ -1,71 +1,83 @@
-import re
+import os
 import shutil
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from pprint import pprint
 
-import piexif
+from exiftool import ExifToolHelper
 
 
 def parse_bridge_xml(file: Path):
     try:
+        # 解析 XML 文件
         tree = ET.parse(file)
         root = tree.getroot()
 
-        # 通常 Bridge 使用 XMP 格式，命名空间可能需要处理
+        # 定义命名空间
         ns = {
             "x": "adobe:ns:meta/",
             "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
             "xmp": "http://ns.adobe.com/xap/1.0/",
-            "xmp:Rating": "http://ns.adobe.com/xap/1.0/",
-            "xmp:Keywords": "http://ns.adobe.com/xap/1.0/DynamicMedia/",
         }
 
+        # 寻找 rdf:Description 节点
+        description_elem = root.find(".//rdf:Description", ns)
+        if description_elem is None:
+            raise ValueError("未找到 rdf:Description 节点")
+
+        # 提取 Rating
         rating = None
-        keywords = []
+        if "{" + ns["xmp"] + "}Rating" in description_elem.attrib:
+            rating = int(description_elem.attrib["{" + ns["xmp"] + "}Rating"])
 
-        # 查找 rating
-        rating_elem = root.find(".//xmp:Rating", ns)
-        if rating_elem is not None:
-            rating = int(rating_elem.text)
+        # 提取 Label
+        label = None
+        if "{" + ns["xmp"] + "}Label" in description_elem.attrib:
+            label = description_elem.attrib["{" + ns["xmp"] + "}Label"]
 
-        # 查找关键词（可能是多个 li 元素）
-        keyword_elems = root.findall(".//rdf:li", ns)
-        for elem in keyword_elems:
-            if elem.text:
-                keywords.append(elem.text.strip())
+        return {"Rating": rating, "Label": label}
 
-        return {"Rating": rating, "XPKeywords": keywords}
-    except Exception as e:  # noqa: F841
+    except Exception as e:
+        print(f"错误: {e}")
         return {}
 
 
 def parse_image_exif(file: Path):
     try:
-        exif_dict = piexif.load(str(file))
-        rating = exif_dict["0th"].get(piexif.ImageIFD.Rating, None)
-        raw_keywords = exif_dict["0th"].get(piexif.ImageIFD.XPKeywords, b"")
+        # 使用 ExifToolHelper 读取 EXIF 数据
+        with ExifToolHelper() as et:
+            metadata = et.get_metadata(str(file))
+            assert len(metadata) == 1
+            metadata = metadata[0]
 
-        if isinstance(raw_keywords, bytes):
+        # 获取 Rating 和 XPKeywords
+        rating = metadata.get("XMP:Rating", None)
+        # raw_keywords = metadata.get("XMP:XPKeywords", "")
+        raw_keywords = metadata.get("XMP:Label", None)
+        # print(raw_keywords)
+
+        # 解码和清理关键字
+        if isinstance(raw_keywords, str):
+            keywords = raw_keywords
+        elif isinstance(raw_keywords, bytes):
             keywords = raw_keywords.decode("utf-16", errors="ignore")
-        elif isinstance(raw_keywords, list):
-            keywords = bytes(raw_keywords).decode("utf-16", errors="ignore")
         else:
             keywords = ""
 
-        tags = re.split(r"[;,]+", keywords)
-        clean_tags = [tag.strip() for tag in tags if tag.strip()]
+        # tags = re.split(r"[;,]+", keywords)
+        # clean_tags = [tag.strip() for tag in tags if tag.strip()]
 
-        return {"Rating": rating, "XPKeywords": clean_tags}
+        return {"Rating": rating, "Label": keywords}
+
     except Exception as e:
-        print(f"Can not read EXIF:{e}")
+        print(f"Cannot read EXIF: {e}")
         return {}
 
 
 def get_metadata(file: Path):
     # 支持的图片格式
-    image_extensions = {".jpg", ".jpeg", ".tiff"}
-    meta_extensions = {".xml"}
+    image_extensions = {".jpg", ".jpeg", ".tiff", ".dng", ".png", ".orf", ".arw"}
+    meta_extensions = {".xml", ".xmp"}
     if file.suffix.lower() in image_extensions:
         return parse_image_exif(file)
 
@@ -86,35 +98,52 @@ def organize_by_rating(source_dir: str, debug: bool = False):
 
     # Rating files
     file_rating = {}
+    file_label = {}
 
-    def rate_files_in_path(dir: Path):
-        for file in dir.iterdir():
+    def rate_files_in_path(dir_: Path):
+        for file in dir_.iterdir():
             if file.is_file():
                 metadata = get_metadata(file)
                 # pprint(metadata)
                 rating = metadata.get("Rating", None)
-                tags = metadata.get("XPKeywords", [])
-
-                file_rating.setdefault(file.stem, []).extend(tags)
+                label = metadata.get("Label", None)
                 if rating:
-                    file_rating[file.stem].append(rating)
+                    file_rating.setdefault(file.stem, []).append(rating)
+                if label:
+                    file_label.setdefault(file.stem, []).append(label)
 
     def move_files_in_path(dir: Path):
         # move file
         for file in dir.iterdir():
-            tags = file_rating[file.stem]
-            # 判断移动逻辑
-            if 1 in tags or "Delete" in tags:
-                target = delete_dir / file.name
-            elif 2 in tags or "Pending" in str(tags):
-                target = pending_dir / file.name
-            else:
-                continue  # 保留在原目录
+            if file.is_file():
+                rating = file_rating.get(file.stem,[])
+                if not rating:
+                    target = pending_dir / file.name  
+                
+                elif max(rating) == -1: # Rating -1 is reject
+                    target = delete_dir / file.name
+                else: # Base dir
+                    target = source /file.name
 
-            if debug:
-                print(f"移动文件: {file.name} -> {target}")
-            else:
-                shutil.move(str(file), str(target))
+
+                if debug:
+                    print(f"Moving file: {file.name} -> {target}")
+                else:
+                    if not target.exists():  # 检查目标文件是否存在
+                        shutil.move(file, target)
+                    else:
+                        print(f"File '{target}' already exists, skipping...")
 
     rate_files_in_path(source)
-    pprint(file_rating)
+    rate_files_in_path(delete_dir)
+    rate_files_in_path(pending_dir)
+
+    if debug:
+        pprint(file_rating)
+        # pprint(file_label)
+    
+    move_files_in_path(source)
+    move_files_in_path(delete_dir)
+    move_files_in_path(pending_dir)
+
+    

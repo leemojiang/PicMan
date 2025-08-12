@@ -15,9 +15,9 @@ PicMan is a Python command-line tool for efficient photo management and organiza
 - Preserves file relationships by moving files with the same base name
 
 ### Rating and Tag Management
-- Organizes photos based on ratings and tags from EXIF data
-- Automatically moves files with rating "1" or tag "Delete" to a "delete" folder
-- Automatically moves files with rating "2" or tag "Pending" to a "pending" folder
+- Organizes photos based on ratings 
+- Automatically moves files with rating "-1" or tag "Reject" to a "delete" folder
+- Automatically moves files without rating to a "pending" folder
 - Supports reading metadata from both image EXIF and Adobe Bridge XML files
 
 ## Installation
@@ -40,7 +40,7 @@ uv tool install -e . --upgrade
 
 - Python 3.11 or higher
 - Dependencies:
-  - piexif (>=1.1.3)
+  - pyexiftool (>=0.5.6)
   - tqdm (>=4.67.1)
 
 ## Usage
@@ -84,9 +84,9 @@ pm -r
 pm -r --debug
 ```
 
-This command reads EXIF data from images and Adobe Bridge XML files to organize photos based on ratings:
-- Files with rating "1" or tag "Delete" are moved to a "delete" subfolder
-- Files with rating "2" or tag "Pending" are moved to a "pending" subfolder
+This command reads EXIF data from images and Adobe Bridge XMP files to organize photos based on ratings:
+- Files with rating "-1" or "Reject" are moved to a "delete" subfolder
+- Files without rating are moved to a "pending" subfolder
 - Other files remain in their original location
 
 ## Command Reference

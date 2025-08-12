@@ -24,7 +24,7 @@ def organize_photos_by_filetype(source_dir: str, suffix:List[str] = [".mkv",".mp
     
     pprint.pp(files)
     if input("Process? [Y/N]?").lower() == 'y':
-        print("Process")
+        print("Processing")
     else:
         print("Abort")
         return
@@ -42,4 +42,6 @@ def organize_photos_by_filetype(source_dir: str, suffix:List[str] = [".mkv",".mp
                     tqdm.write(f"Debug : \nFrom {file} \nTo {dst_file}")
                 else:
                     shutil.move(file,dst_file)
+
+    print("Done")
                
