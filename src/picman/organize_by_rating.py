@@ -5,7 +5,7 @@ from pathlib import Path
 from pprint import pprint
 
 from exiftool import ExifToolHelper
-
+from tqdm import tqdm
 
 def parse_bridge_xml(file: Path):
     try:
@@ -101,38 +101,41 @@ def organize_by_rating(source_dir: str, debug: bool = False):
     file_label = {}
 
     def rate_files_in_path(dir_: Path):
-        for file in dir_.iterdir():
-            if file.is_file():
-                metadata = get_metadata(file)
-                # pprint(metadata)
-                rating = metadata.get("Rating", None)
-                label = metadata.get("Label", None)
-                if rating:
-                    file_rating.setdefault(file.stem, []).append(rating)
-                if label:
-                    file_label.setdefault(file.stem, []).append(label)
+        files = [f for f in dir_.iterdir() if f.is_file()]
 
-    def move_files_in_path(dir: Path):
+        for file in tqdm(files,desc=f"Rating files in {dir_}", unit='file'):
+            metadata = get_metadata(file)
+            # pprint(metadata)
+            rating = metadata.get("Rating", None)
+            label = metadata.get("Label", None)
+            if rating:
+                file_rating.setdefault(file.stem, []).append(rating)
+            if label:
+                file_label.setdefault(file.stem, []).append(label)
+
+    def move_files_in_path(dir_: Path):
         # move file
-        for file in dir.iterdir():
-            if file.is_file():
-                rating = file_rating.get(file.stem,[])
-                if not rating:
-                    target = pending_dir / file.name  
-                
-                elif max(rating) == -1: # Rating -1 is reject
-                    target = delete_dir / file.name
-                else: # Base dir
-                    target = source /file.name
+
+        files = [f for f in dir_.iterdir() if f.is_file()]
+
+        for file in tqdm(files,desc=f"Organizing files in {dir_}", unit='file'):
+            rating = file_rating.get(file.stem,[])
+            if not rating:
+                target = pending_dir / file.name  
+            
+            elif max(rating) == -1: # Rating -1 is reject
+                target = delete_dir / file.name
+            else: # Base dir
+                target = source /file.name
 
 
-                if debug:
-                    print(f"Moving file: {file.name} -> {target}")
+            if debug:
+                tqdm.write(f"Moving file: {file.name} -> {target}")
+            else:
+                if not target.exists():  # 检查目标文件是否存在
+                    shutil.move(file, target)
                 else:
-                    if not target.exists():  # 检查目标文件是否存在
-                        shutil.move(file, target)
-                    else:
-                        print(f"File '{target}' already exists, skipping...")
+                    tqdm.write(f"File '{target}' already exists, skipping...")
 
     rate_files_in_path(source)
     rate_files_in_path(delete_dir)
