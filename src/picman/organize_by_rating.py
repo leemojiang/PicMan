@@ -87,7 +87,7 @@ def get_metadata(file: Path):
     return {}
 
 
-def organize_by_rating(source_dir: str, debug: bool = False):
+def organize_by_rating(source_dir: str = "./", debug: bool = False):
     source = Path(source_dir)
     delete_dir = source / "delete"
     pending_dir = source / "pending"

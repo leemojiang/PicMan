@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 
 
-def organize_photos_by_filetype(source_dir: str, suffix:List[str] = [".mkv",".mp4"] ,debug:bool = False):
+def organize_photos_by_filetype(source_dir: str = "./", suffix:List[str] = [".mkv",".mp4"] ,debug:bool = False):
     source = Path(source_dir).resolve()
     target_folder = source / "Videos"
     target_folder.mkdir(exist_ok=True)

@@ -5,6 +5,7 @@ from pathlib import Path
 import exiftool
 from tqdm import tqdm  # 进度条库
 
+from typer import Option
 
 def get_exif_date(file_path: Path):
     with exiftool.ExifToolHelper() as tool:
@@ -14,7 +15,7 @@ def get_exif_date(file_path: Path):
         return creation_date
 
 
-def organize_photos_by_date(source_dir: str, target_dir: str, debug: bool):
+def organize_photos_by_date(source_dir: str = Option("./"), target_dir: str= Option("../"), debug: bool = False):
     source = Path(source_dir).resolve()
     target = Path(target_dir).resolve()
 
