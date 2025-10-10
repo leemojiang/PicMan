@@ -2,6 +2,10 @@
 
 PicMan is a Python command-line tool for efficient photo management and organization. It helps you automatically organize your photo collection based on date, file type, and ratings.
 
+### Updates 10.10.2025
+  Using Typer to build Cli tool.
+
+
 ## Features
 
 ### Date-based Organization
@@ -32,8 +36,8 @@ cd picman
 # Sync project with uv
 uv sync
 
-# Install the package
-uv tool install -e . --upgrade
+# # Install the package
+# uv tool install -e . --upgrade
 ```
 
 ## Requirements
@@ -42,22 +46,23 @@ uv tool install -e . --upgrade
 - Dependencies:
   - pyexiftool (>=0.5.6)
   - tqdm (>=4.67.1)
+  - typer>=0.19.2
 
 ## Usage
 
-PicMan can be used with the `pm` command after installation:
+PicMan can be used with the `pm` command after installation, use `pm command --help` for more information.
 
 ### Organize Photos by Date
 
 ```bash
 # Basic usage (uses current directory as source and parent directory as target)
-pm -d
+pm date 
 
 # Specify source and target directories
-pm -d /path/to/photos /path/to/destination
+pm date /path/to/photos /path/to/destination
 
 # Enable debug mode (shows operations without moving files)
-pm -d --debug
+pm date --debug
 ```
 
 During execution, you'll be prompted to confirm the operation and optionally provide a camera model to include in the folder names.
@@ -66,10 +71,10 @@ During execution, you'll be prompted to confirm the operation and optionally pro
 
 ```bash
 # Move video files to a "Videos" subfolder in the current directory
-pm -v
+pm type
 
 # Enable debug mode
-pm -v --debug
+pm type --debug
 ```
 
 This command will identify files with specified extensions (default: .mkv, .mp4, .mov) and move them, along with any related files sharing the same base name, to a "Videos" subfolder.
@@ -78,10 +83,10 @@ This command will identify files with specified extensions (default: .mkv, .mp4,
 
 ```bash
 # Organize photos in the current directory based on ratings
-pm -r
+pm rate
 
 # Enable debug mode
-pm -r --debug
+pm rate --debug
 ```
 
 This command reads EXIF data from images and Adobe Bridge XMP files to organize photos based on ratings:
@@ -89,23 +94,3 @@ This command reads EXIF data from images and Adobe Bridge XMP files to organize 
 - Files without rating are moved to a "pending" subfolder
 - Other files remain in their original location
 
-## Command Reference
-
-```
-usage: pm [-h] (-d | -v | -r) [-de] [source] [target]
-
-Organize photos by creation date.
-
-positional arguments:
-  source                Source directory containing photos (default: current directory)
-  target                Target directory to store organized photos (default: parent directory)
-
-options:
-  -h, --help            show this help message and exit
-  -d, --organize-by-date
-                        按日期整理照片
-  -v, --organize-by-type
-                        把文件中的视频以及字幕移动到文件夹
-  -r, --organize-by-rating
-                        按照打分等级整理照片
-  -de, --debug          debug flag
