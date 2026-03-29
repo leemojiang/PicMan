@@ -25,6 +25,19 @@ PicMan is a Python command-line tool for efficient photo management and organiza
 - Supports reading metadata from both image EXIF and Adobe Bridge XML files
 
 ## Installation
+```bash
+# Check and previou version
+uv tool list 
+
+# uninstall previous version if exists
+uv tool uninstall picman
+
+# Install the package
+uv tool install git+https://github.com/leemojiang/PicMan.git
+
+```
+
+## Development Setup
 
 ```bash
 # Clone the repository
