@@ -1,23 +1,47 @@
 import shutil
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
-import exiftool
+import piexif
 from tqdm import tqdm  # 进度条库
 
 from typer import Option
 
-def get_exif_date(file_path: Path):
-    with exiftool.ExifToolHelper() as tool:
-        metadata = tool.get_metadata(file_path)
-        assert len(metadata) == 1
-        creation_date = metadata[0].get("EXIF:DateTimeOriginal", None)
-        return creation_date
+def get_exif_date(file_path: Path) -> Optional[str]:
+    """
+    Extract EXIF date from image file.
+    Returns datetime string in format "YYYY:MM:DD HH:MM:SS" or None.
+    """
+    try:
+        exif_dict = piexif.load(str(file_path))
+        
+        # Try to get DateTimeOriginal (拍摄时间)
+        if "Exif" in exif_dict:
+            exif_data = exif_dict["Exif"]
+            if piexif.ExifIFD.DateTimeOriginal in exif_data:
+                dt_bytes = exif_data[piexif.ExifIFD.DateTimeOriginal]
+                return dt_bytes.decode('ascii')
+        
+        # Fallback to DateTime (modification time in EXIF)
+        if "0th" in exif_dict:
+            exif_data = exif_dict["0th"]
+            if piexif.ImageIFD.DateTime in exif_data:
+                dt_bytes = exif_data[piexif.ImageIFD.DateTime]
+                return dt_bytes.decode('ascii')
+        
+        return None
+    except Exception as e:
+        # Log error and return None instead of crashing
+        tqdm.write(f"Warning: Failed to read EXIF from {file_path.name}: {e}")
+        return None
 
 
 def organize_photos_by_date(source_dir: str = Option("./"), target_dir: str= Option("../"), debug: bool = False):
     source = Path(source_dir).resolve()
     target = Path(target_dir).resolve()
+    print(f"Source: {source}")
+    print(f"Target: {target}")
 
     if not source.exists():
         raise FileNotFoundError(f"Source directory {source} does not exist.")
@@ -26,9 +50,10 @@ def organize_photos_by_date(source_dir: str = Option("./"), target_dir: str= Opt
     if not files:
         print("No files found in source directory.")
         return
+    print(f"Found {len(files)} files in source directory.")
 
     date_mapping = {}
-    for f in files:
+    for f in tqdm(files, desc="Reading file dates", unit="file"):
         mtime = datetime.fromtimestamp(f.stat().st_mtime)  # 修改时间
         ctime = datetime.fromtimestamp(f.stat().st_ctime)  # 创建时间
         earliest = min(mtime, ctime)

@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from pprint import pprint
 
-from exiftool import ExifToolHelper
+import piexif
 from tqdm import tqdm
 
 def parse_bridge_xml(file: Path):
@@ -43,34 +43,49 @@ def parse_bridge_xml(file: Path):
 
 
 def parse_image_exif(file: Path):
+    """
+    Read EXIF and XMP metadata from image file.
+    piexif can read XMP data stored in JPEG/TIFF files.
+    """
     try:
-        # 使用 ExifToolHelper 读取 EXIF 数据
-        with ExifToolHelper() as et:
-            metadata = et.get_metadata(str(file))
-            assert len(metadata) == 1
-            metadata = metadata[0]
-
-        # 获取 Rating 和 XPKeywords
-        rating = metadata.get("XMP:Rating", None)
-        # raw_keywords = metadata.get("XMP:XPKeywords", "")
-        raw_keywords = metadata.get("XMP:Label", None)
-        # print(raw_keywords)
-
-        # 解码和清理关键字
-        if isinstance(raw_keywords, str):
-            keywords = raw_keywords
-        elif isinstance(raw_keywords, bytes):
-            keywords = raw_keywords.decode("utf-16", errors="ignore")
-        else:
-            keywords = ""
-
-        # tags = re.split(r"[;,]+", keywords)
-        # clean_tags = [tag.strip() for tag in tags if tag.strip()]
-
-        return {"Rating": rating, "Label": keywords}
+        exif_dict = piexif.load(str(file))
+        
+        rating = None
+        label = None
+        
+        # Extract XMP data if available
+        if "XMP" in exif_dict:
+            xmp_data = exif_dict["XMP"].decode('utf-8', errors='ignore')
+            
+            # Parse Rating from XMP
+            if '<xmp:Rating>' in xmp_data:
+                try:
+                    start = xmp_data.find('<xmp:Rating>') + len('<xmp:Rating>')
+                    end = xmp_data.find('</xmp:Rating>')
+                    rating = int(xmp_data[start:end])
+                except (ValueError, IndexError):
+                    rating = None
+            
+            # Parse Label from XMP
+            if '<xmp:Label>' in xmp_data:
+                try:
+                    start = xmp_data.find('<xmp:Label>') + len('<xmp:Label>')
+                    end = xmp_data.find('</xmp:Label>')
+                    label = xmp_data[start:end]
+                except IndexError:
+                    label = None
+        
+        # Also check 0th IFD for some camera-specific rating tags
+        if "0th" in exif_dict:
+            exif_data = exif_dict["0th"]
+            # Tag 18246 (0x4726) - Author, some cameras use for rating
+            # Tag 18247 (0x4727) - Comments
+            pass
+        
+        return {"Rating": rating, "Label": label}
 
     except Exception as e:
-        print(f"Cannot read EXIF: {e}")
+        tqdm.write(f"Cannot read EXIF: {file.name} - {e}")
         return {}
 
 
